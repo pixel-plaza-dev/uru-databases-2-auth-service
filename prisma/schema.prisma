@@ -1,0 +1,86 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("AUTH_DATABASE_URL")
+}
+
+model UserLoginAttempt {
+  id           String           @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String           @db.ObjectId
+  ip           String
+  userAgent    String
+  createdAt    DateTime         @default(now())
+  successful   Boolean
+  refreshToken JwtRefreshToken?
+}
+
+model JwtRefreshToken {
+  id                      String            @id @default(auto()) @map("_id") @db.ObjectId
+  token                   String            @unique
+  expiresAt               DateTime          @default(now())
+  createdAt               DateTime          @default(now())
+  usedAt                  DateTime          @default(now())
+  revokedAt               DateTime?
+  jwtAccessToken          JwtAccessToken    @relation(fields: [jwtAccessTokenId], references: [id])
+  jwtAccessTokenId        String            @unique @db.ObjectId
+  userLoginAttempt        UserLoginAttempt? @relation(fields: [userLoginAttemptId], references: [id])
+  userLoginAttemptId      String?           @unique @db.ObjectId
+  parentJwtRefreshToken   JwtRefreshToken?  @relation(name: "parentJwtRefreshToken", fields: [parentJwtRefreshTokenId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  parentJwtRefreshTokenId String?           @unique @db.ObjectId
+  childJwtRefreshToken    JwtRefreshToken?  @relation(name: "parentJwtRefreshToken")
+}
+
+model JwtAccessToken {
+  id              String           @id @default(auto()) @map("_id") @db.ObjectId
+  token           String           @unique
+  expiresAt       DateTime         @default(now())
+  createdAt       DateTime         @default(now())
+  lastUsedAt      DateTime         @default(now())
+  revokedAt       DateTime?
+  jwtRefreshToken JwtRefreshToken?
+}
+
+model UserRole {
+  id               String    @id @default(auto()) @map("_id") @db.ObjectId
+  roleId           Role
+  userId           String    @db.ObjectId
+  assignedByUserId String    @db.ObjectId
+  revokedByUserId  String?   @db.ObjectId
+  assignedAt       DateTime  @default(now())
+  revokedAt        DateTime?
+}
+
+model Role {
+  id              String            @id @default(auto()) @map("_id") @db.ObjectId
+  createdByUserId String            @db.ObjectId
+  revokedByUserId String            @db.ObjectId
+  name            String
+  description     String?
+  createdAt       DateTime          @default(now())
+  revokedAt       DateTime?
+  permissions     Role_Permission[]
+}
+
+model Role_Permission {
+  id               String     @id @default(auto()) @map("_id") @db.ObjectId
+  assignedByUserId String     @db.ObjectId
+  revokedByUserId  String?    @db.ObjectId
+  role             Role       @relation(fields: [roleId], references: [id])
+  roleId           String     @db.ObjectId
+  permission       Permission @relation(fields: [permissionId], references: [id])
+  permissionId     String     @db.ObjectId
+  assignedAt       DateTime   @default(now())
+  revokedAt        DateTime?
+}
+
+model Permission {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdByUserId String   @db.ObjectId
+  createdAt       DateTime @default(now())
+  action          String
+  subject         String
+  description     String?
+}
