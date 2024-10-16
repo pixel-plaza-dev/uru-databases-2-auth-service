@@ -45,7 +45,8 @@ model JwtAccessToken {
 
 model UserRole {
   id               String    @id @default(auto()) @map("_id") @db.ObjectId
-  roleId           Role
+  role             Role      @relation(fields: [roleId], references: [id])
+  roleId           String    @db.ObjectId
   userId           String    @db.ObjectId
   assignedByUserId String    @db.ObjectId
   revokedByUserId  String?   @db.ObjectId
@@ -54,17 +55,18 @@ model UserRole {
 }
 
 model Role {
-  id              String            @id @default(auto()) @map("_id") @db.ObjectId
-  createdByUserId String            @db.ObjectId
-  revokedByUserId String            @db.ObjectId
+  id              String           @id @default(auto()) @map("_id") @db.ObjectId
+  createdByUserId String           @db.ObjectId
+  revokedByUserId String           @db.ObjectId
   name            String
   description     String?
-  createdAt       DateTime          @default(now())
+  createdAt       DateTime         @default(now())
   revokedAt       DateTime?
-  permissions     Role_Permission[]
+  userRole        UserRole[]
+  permissions     RolePermission[]
 }
 
-model Role_Permission {
+model RolePermission {
   id               String     @id @default(auto()) @map("_id") @db.ObjectId
   assignedByUserId String     @db.ObjectId
   revokedByUserId  String?    @db.ObjectId
@@ -77,10 +79,13 @@ model Role_Permission {
 }
 
 model Permission {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  createdByUserId String   @db.ObjectId
-  createdAt       DateTime @default(now())
+  id              String           @id @default(auto()) @map("_id") @db.ObjectId
+  createdByUserId String           @db.ObjectId
+  revokedByUserId String           @db.ObjectId
+  createdAt       DateTime         @default(now())
+  revokedAt       DateTime?
   action          String
   subject         String
   description     String?
+  rolePermission  RolePermission[]
 }
