@@ -1,0 +1,51 @@
+{
+  "jsonSchema": {
+    "required": [
+      "user_id",
+      "created_at",
+      "expires_at"
+    ],
+    "properties": {
+      "user_id": {
+        "bsonType": "objectId",
+        "description": "must be an objectId and is required"
+      },
+      "created_at": {
+        "bsonType": "date",
+        "description": "must be a date and is required"
+      },
+      "expires_at": {
+        "bsonType": "date",
+        "description": "must be a date and is required"
+      },
+      "revoked_at": {
+        "bsonType": "date",
+        "description": "must be a date"
+      }
+    },
+    "oneOf": [
+      {
+        "required": [
+          "user_log_in_attempt_id"
+        ],
+        "properties": {
+          "user_log_in_attempt_id": {
+            "bsonType": "objectId",
+            "description": "must be an objectId and is required"
+          }
+        }
+      },
+      {
+        "required": [
+          "parent_jwt_refresh_token_id"
+        ],
+        "properties": {
+          "parent_jwt_refresh_token_id": {
+            "bsonType": "objectId",
+            "description": "must be an objectId and is required"
+          }
+        }
+      }
+    ]
+  }
+}
