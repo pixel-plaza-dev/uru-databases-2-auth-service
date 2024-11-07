@@ -1,3 +1,0 @@
-[submodule "grpc_common"]
-	path = grpc_common
-	url = https://github.com/pixel-plaza-dev/uru-databases-2-grpc-common
