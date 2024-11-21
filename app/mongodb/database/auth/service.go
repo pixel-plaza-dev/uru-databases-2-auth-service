@@ -2,7 +2,7 @@ package auth
 
 import (
 	"github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/mongodb"
-	commonmongodb "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/mongodb"
+	commonmongodb "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/database/mongodb"
 	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/net/context"
 )
@@ -11,10 +11,15 @@ type Database struct {
 	database    *mongo.Database
 	collections *map[string]*commonmongodb.Collection
 	client      *mongo.Client
+	logger      Logger
 }
 
 // NewDatabase creates a new MongoDB auth database handler
-func NewDatabase(client *mongo.Client, databaseName string) (database *Database, err error) {
+func NewDatabase(
+	client *mongo.Client,
+	databaseName string,
+	logger Logger,
+) (database *Database, err error) {
 	// Get the auth service database
 	authServiceDb := client.Database(databaseName)
 
@@ -29,7 +34,8 @@ func NewDatabase(client *mongo.Client, databaseName string) (database *Database,
 		mongodb.RoleCollection,
 		mongodb.RolePermissionCollection,
 		mongodb.UserLogInAttemptCollection,
-		mongodb.UserRoleCollection} {
+		mongodb.UserRoleCollection,
+	} {
 		// Create the collection
 		collections[collection.Name] = collection
 		if _, err = collection.CreateCollection(authServiceDb); err != nil {
@@ -38,7 +44,12 @@ func NewDatabase(client *mongo.Client, databaseName string) (database *Database,
 	}
 
 	// Create the user database instance
-	instance := &Database{client: client, database: authServiceDb, collections: &collections}
+	instance := &Database{
+		client:      client,
+		database:    authServiceDb,
+		collections: &collections,
+		logger:      logger,
+	}
 
 	return instance, nil
 }
@@ -49,13 +60,22 @@ func (d *Database) Database() *mongo.Database {
 }
 
 // GetQueryContext returns a new query context
-func (d *Database) GetQueryContext() (ctx context.Context, cancelFunc context.CancelFunc) {
+func (d *Database) GetQueryContext() (
+	ctx context.Context,
+	cancelFunc context.CancelFunc,
+) {
 	return context.WithTimeout(context.Background(), mongodb.QueryCtxTimeout)
 }
 
 // GetTransactionContext returns a new transaction context
-func (d *Database) GetTransactionContext() (ctx context.Context, cancelFunc context.CancelFunc) {
-	return context.WithTimeout(context.Background(), mongodb.TransactionCtxTimeout)
+func (d *Database) GetTransactionContext() (
+	ctx context.Context,
+	cancelFunc context.CancelFunc,
+) {
+	return context.WithTimeout(
+		context.Background(),
+		mongodb.TransactionCtxTimeout,
+	)
 }
 
 // GetCollection returns a collection
@@ -64,7 +84,10 @@ func (d *Database) GetCollection(collection *commonmongodb.Collection) *mongo.Co
 }
 
 // InsertOne inserts a document into a collection
-func (d *Database) InsertOne(collection *commonmongodb.Collection, document interface{}) (result *mongo.InsertOneResult, err error) {
+func (d *Database) InsertOne(
+	collection *commonmongodb.Collection,
+	document interface{},
+) (result *mongo.InsertOneResult, err error) {
 	// Create the context
 	ctx, cancelFunc := d.GetQueryContext()
 	defer cancelFunc()
@@ -76,4 +99,20 @@ func (d *Database) InsertOne(collection *commonmongodb.Collection, document inte
 	}
 
 	return result, nil
+}
+
+// IsRefreshTokenValid checks if a refresh token is valid
+func (d *Database) IsRefreshTokenValid(refreshToken string) (
+	valid bool,
+	err error,
+) {
+	return false, InDevelopmentError
+}
+
+// IsAccessTokenValid checks if an access token is valid
+func (d *Database) IsAccessTokenValid(accessToken string) (
+	valid bool,
+	err error,
+) {
+	return false, InDevelopmentError
 }

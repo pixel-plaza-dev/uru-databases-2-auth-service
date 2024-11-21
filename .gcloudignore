@@ -1,0 +1,20 @@
+# IDE folders
+.idea
+.vscode
+
+# .gitignore file
+.gitignore
+
+# .git directory
+.git
+
+# Executable files
+/**/*.exe
+
+# Certificates
+/certificates
+
+# Commands
+/**/*.cmd
+/**/*.sh
+/**/*.bat

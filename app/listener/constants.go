@@ -1,6 +1,6 @@
 package listener
 
 const (
-	// AuthServicePortKey is the key of the default port for the application
-	AuthServicePortKey = "AUTH_SERVICE_PORT"
+	// PortKey is the key of the default port for the application
+	PortKey = "PORT"
 )

@@ -1,46 +1,31 @@
 package logger
 
 import (
-	"github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/mongodb/database/auth"
-	commonenv "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/env"
-	commonflag "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/flag"
-	commonlistener "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/listener"
-	commonlogger "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/logger"
-	commonmongodb "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/mongodb"
-)
-
-const (
-	// FlagLoggerName is the name of the flag logger
-	FlagLoggerName = "Flag"
-
-	// ListenerLoggerName is the name of the listener logger
-	ListenerLoggerName = "Net Listener"
-
-	// EnvironmentLoggerName is the name of the environment logger
-	EnvironmentLoggerName = "Environment"
-
-	// MongoDbLoggerName is the name of the MongoDB logger
-	MongoDbLoggerName = "MongoDB"
-
-	// AuthDatabaseLoggerName is the name of the auth database logger
-	AuthDatabaseLoggerName = "Auth Database"
+	authserver "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/grpc/server/auth"
+	authdatabase "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/mongodb/database/auth"
+	commonenv "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/config/env"
+	commonflag "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/config/flag"
+	commonmongodb "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/database/mongodb"
+	commonlistener "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/http/listener"
+	commonlogger "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/utils/logger"
 )
 
 var (
 	// FlagLogger is the logger for the flag
-	FlagLogger = commonflag.NewLogger(commonlogger.NewDefaultLogger(FlagLoggerName))
+	FlagLogger = commonflag.NewLogger(commonlogger.NewDefaultLogger("Flag"))
 
 	// ListenerLogger is the logger for the listener
-	ListenerLogger = commonlistener.NewLogger(commonlogger.NewDefaultLogger(ListenerLoggerName))
+	ListenerLogger = commonlistener.NewLogger(commonlogger.NewDefaultLogger("Net Listener"))
 
 	// EnvironmentLogger is the logger for the environment
-	EnvironmentLogger = commonenv.NewLogger(commonlogger.NewDefaultLogger(EnvironmentLoggerName))
+	EnvironmentLogger = commonenv.NewLogger(commonlogger.NewDefaultLogger("Environment"))
 
 	// MongoDbLogger is the logger for the MongoDB client
-	MongoDbLogger = commonmongodb.NewLogger(commonlogger.NewDefaultLogger(MongoDbLoggerName))
+	MongoDbLogger = commonmongodb.NewLogger(commonlogger.NewDefaultLogger("MongoDB"))
 
-	//
+	// AuthServerLogger is the logger for the auth server
+	AuthServerLogger = authserver.NewLogger(commonlogger.NewDefaultLogger("Auth Server"))
 
 	// AuthDatabaseLogger is the logger for the auth database
-	AuthDatabaseLogger = auth.NewLogger(commonlogger.NewDefaultLogger(AuthDatabaseLoggerName))
+	AuthDatabaseLogger = authdatabase.NewLogger(commonlogger.NewDefaultLogger("Auth Database"))
 )

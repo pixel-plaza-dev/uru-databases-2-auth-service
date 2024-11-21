@@ -8,6 +8,15 @@
 # Executable files
 /**/*.exe
 
+# Certificates
+/certificates
+
 # Private and public keys
+/keys
 /**/*.ed
 /**/*.pub
+/**/*.pem
+
+# Service account keys
+/iam
+/**/service-account.json
