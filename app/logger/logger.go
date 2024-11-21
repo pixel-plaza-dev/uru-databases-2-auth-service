@@ -5,7 +5,7 @@ import (
 	authdatabase "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/mongodb/database/auth"
 	commonenv "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/config/env"
 	commonflag "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/config/flag"
-	commonmongodb "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/database/mongodb"
+	commondatabase "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/database"
 	commonlistener "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/http/listener"
 	commonlogger "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/utils/logger"
 )
@@ -21,7 +21,7 @@ var (
 	EnvironmentLogger = commonenv.NewLogger(commonlogger.NewDefaultLogger("Environment"))
 
 	// MongoDbLogger is the logger for the MongoDB client
-	MongoDbLogger = commonmongodb.NewLogger(commonlogger.NewDefaultLogger("MongoDB"))
+	MongoDbLogger = commondatabase.NewLogger(commonlogger.NewDefaultLogger("MongoDB"))
 
 	// AuthServerLogger is the logger for the auth server
 	AuthServerLogger = authserver.NewLogger(commonlogger.NewDefaultLogger("Auth Server"))

@@ -3,6 +3,7 @@ package auth
 import (
 	"github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/mongodb/database/auth"
 	commonjwtissuer "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/crypto/jwt/issuer"
+	commonredisauth "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/database/redis/auth"
 	pbauth "github.com/pixel-plaza-dev/uru-databases-2-protobuf-common/protobuf/compiled/auth"
 	pbuser "github.com/pixel-plaza-dev/uru-databases-2-protobuf-common/protobuf/compiled/user"
 	"golang.org/x/net/context"
@@ -10,10 +11,11 @@ import (
 
 // Server is the gRPC auth server
 type Server struct {
-	authDatabase *auth.Database
-	userClient   pbuser.UserClient
-	jwtIssuer    commonjwtissuer.Issuer
-	logger       Logger
+	authDatabase        *auth.Database
+	userClient          pbuser.UserClient
+	jwtIssuer           commonjwtissuer.Issuer
+	logger              Logger
+	redisTokenValidator commonredisauth.TokenValidator
 	pbauth.UnimplementedAuthServer
 }
 
@@ -23,12 +25,14 @@ func NewServer(
 	userClient pbuser.UserClient,
 	jwtIssuer commonjwtissuer.Issuer,
 	logger Logger,
+	redisTokenValidator commonredisauth.TokenValidator,
 ) *Server {
 	return &Server{
-		authDatabase: authDatabase,
-		userClient:   userClient,
-		jwtIssuer:    jwtIssuer,
-		logger:       logger,
+		authDatabase:        authDatabase,
+		userClient:          userClient,
+		jwtIssuer:           jwtIssuer,
+		logger:              logger,
+		redisTokenValidator: redisTokenValidator,
 	}
 }
 
@@ -64,6 +68,7 @@ func (s Server) IsAccessTokenValid(
 	ctx context.Context,
 	request *pbauth.IsAccessTokenValidRequest,
 ) (*pbauth.IsAccessTokenValidResponse, error) {
+	// Check redis
 	return nil, InDevelopmentError
 }
 
@@ -72,6 +77,7 @@ func (s Server) IsRefreshTokenValid(
 	ctx context.Context,
 	request *pbauth.IsRefreshTokenValidRequest,
 ) (*pbauth.IsRefreshTokenValidResponse, error) {
+	// Check redis
 	return nil, InDevelopmentError
 }
 
@@ -80,6 +86,7 @@ func (s Server) RefreshToken(
 	ctx context.Context,
 	request *pbauth.RefreshTokenRequest,
 ) (*pbauth.RefreshTokenResponse, error) {
+	// Check redis
 	return nil, InDevelopmentError
 }
 
@@ -88,6 +95,7 @@ func (s Server) LogOut(
 	ctx context.Context,
 	request *pbauth.LogOutRequest,
 ) (*pbauth.LogOutResponse, error) {
+	// Check redis
 	return nil, InDevelopmentError
 }
 
@@ -104,6 +112,7 @@ func (s Server) CloseSession(
 	ctx context.Context,
 	request *pbauth.CloseSessionRequest,
 ) (*pbauth.CloseSessionResponse, error) {
+	// Check redis
 	return nil, InDevelopmentError
 }
 
@@ -112,6 +121,7 @@ func (s Server) CloseSessions(
 	ctx context.Context,
 	request *pbauth.CloseSessionsRequest,
 ) (*pbauth.CloseSessionsResponse, error) {
+	// Check redis
 	return nil, InDevelopmentError
 }
 
