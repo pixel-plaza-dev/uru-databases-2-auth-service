@@ -1,7 +1,8 @@
 package auth
 
 import (
-	"github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/mongodb/database/auth"
+	"github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/database/mongodb/auth"
+	authservervalidator "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/grpc/server/auth/validator"
 	commonjwtissuer "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/crypto/jwt/issuer"
 	commonredisauth "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/database/redis/auth"
 	pbauth "github.com/pixel-plaza-dev/uru-databases-2-protobuf-common/protobuf/compiled/auth"
@@ -16,6 +17,7 @@ type Server struct {
 	jwtIssuer           commonjwtissuer.Issuer
 	logger              Logger
 	redisTokenValidator commonredisauth.TokenValidator
+	validator           *authservervalidator.Validator
 	pbauth.UnimplementedAuthServer
 }
 
@@ -26,6 +28,7 @@ func NewServer(
 	jwtIssuer commonjwtissuer.Issuer,
 	logger Logger,
 	redisTokenValidator commonredisauth.TokenValidator,
+	validator *authservervalidator.Validator,
 ) *Server {
 	return &Server{
 		authDatabase:        authDatabase,
@@ -33,6 +36,7 @@ func NewServer(
 		jwtIssuer:           jwtIssuer,
 		logger:              logger,
 		redisTokenValidator: redisTokenValidator,
+		validator:           validator,
 	}
 }
 

@@ -1,7 +1,7 @@
 package grpc
 
 import (
-	"github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/mongodb/database/auth"
+	"github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/database/mongodb/auth"
 	commonredisauth "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/database/redis/auth"
 )
 

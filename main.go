@@ -4,14 +4,15 @@ import (
 	"context"
 	"flag"
 	"github.com/joho/godotenv"
+	"github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/database/mongodb"
+	"github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/database/mongodb/auth"
 	appgrpc "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/grpc"
 	authserver "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/grpc/server/auth"
+	authservervalidator "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/grpc/server/auth/validator"
 	appjwt "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/jwt"
 	jwtvalidatorgrpc "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/jwt/validator/grpc"
 	"github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/listener"
 	"github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/logger"
-	"github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/mongodb"
-	authdatabase "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/mongodb/database/auth"
 	commongcloud "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/cloud/gcloud"
 	commonenv "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/config/env"
 	commonflag "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/config/flag"
@@ -20,6 +21,7 @@ import (
 	commonmongodb "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/database/mongodb"
 	clientauth "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/http/grpc/client/interceptor/auth"
 	serverauth "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/http/grpc/server/interceptor/auth"
+	commongrpcvalidator "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/http/grpc/server/validator"
 	commonlistener "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/http/listener"
 	commontls "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/http/tls"
 	pbauth "github.com/pixel-plaza-dev/uru-databases-2-protobuf-common/protobuf/compiled/auth"
@@ -61,19 +63,19 @@ func main() {
 	logger.EnvironmentLogger.EnvironmentVariableLoaded(listener.PortKey)
 
 	// Get the MongoDB URI
-	mongoDbUri, err := commonenv.LoadVariable(mongodb.UriKey)
+	mongoDbUri, err := commonenv.LoadVariable(auth.UriKey)
 	if err != nil {
 		panic(err)
 	}
-	logger.EnvironmentLogger.EnvironmentVariableLoaded(mongodb.UriKey)
+	logger.EnvironmentLogger.EnvironmentVariableLoaded(auth.UriKey)
 
 	// Get the required MongoDB database name
-	mongoDbName, err := commonenv.LoadVariable(mongodb.DbNameKey)
+	mongoDbName, err := commonenv.LoadVariable(auth.DbNameKey)
 	if err != nil {
 
 		panic(err)
 	}
-	logger.EnvironmentLogger.EnvironmentVariableLoaded(mongodb.DbNameKey)
+	logger.EnvironmentLogger.EnvironmentVariableLoaded(auth.DbNameKey)
 
 	// Get the gRPC services URI
 	var uris = make(map[string]string)
@@ -130,12 +132,6 @@ func main() {
 		panic(err)
 	}
 
-	// Create auth database handler
-	authDatabase, err := authdatabase.NewDatabase(
-		mongodbClient,
-		mongoDbName,
-		logger.AuthDatabaseLogger,
-	)
 	if err != nil {
 		panic(err)
 	}
@@ -199,8 +195,18 @@ func main() {
 	// Create gRPC server clients
 	userClient := pbuser.NewUserClient(conns[appgrpc.UserServiceUriKey])
 
+	// Create auth database handler
+	authDatabase, err := auth.NewDatabase(
+		mongodbClient,
+		mongoDbName,
+		userClient,
+	)
+
 	// Create token validator
-	tokenValidator := jwtvalidatorgrpc.NewDefaultTokenValidator(authDatabase, nil)
+	tokenValidator := jwtvalidatorgrpc.NewDefaultTokenValidator(
+		authDatabase,
+		nil,
+	)
 
 	// Create JWT validator
 	jwtValidator, err := commonjwtvalidator.NewDefaultValidator(
@@ -234,6 +240,15 @@ func main() {
 		),
 	)
 
+	// Create the gRPC server validator
+	serverValidator := commongrpcvalidator.NewDefaultValidator()
+
+	// Create the gRPC auth server validator
+	authServerValidator := authservervalidator.NewValidator(
+		authDatabase,
+		serverValidator,
+	)
+
 	// Create the gRPC Auth Server
 	authServer := authserver.NewServer(
 		authDatabase,
@@ -241,11 +256,11 @@ func main() {
 		jwtIssuer,
 		logger.AuthServerLogger,
 		nil,
+		authServerValidator,
 	)
 
 	// Register the auth server with the gRPC server
 	pbauth.RegisterAuthServer(s, authServer)
-	logger.ListenerLogger.ServerStarted(servicePort.Port)
 
 	// Listen on the given port
 	portListener, err := net.Listen("tcp", servicePort.FormattedPort)
@@ -259,9 +274,9 @@ func main() {
 	}()
 
 	// Serve the gRPC server
+	logger.ListenerLogger.ServerStarted(servicePort.Port)
 	if err = s.Serve(portListener); err != nil {
 		panic(commonlistener.FailedToServeError)
 	}
-	logger.ListenerLogger.ServerStarted(servicePort.Port)
 	defer s.Stop()
 }

@@ -1,4 +1,4 @@
-package mongodb
+package auth
 
 import (
 	commonmongodb "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/database/mongodb"
