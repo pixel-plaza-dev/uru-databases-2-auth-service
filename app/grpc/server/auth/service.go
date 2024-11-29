@@ -1,20 +1,31 @@
 package auth
 
 import (
-	"github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/database/mongodb/auth"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
+	appmongodbauth "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/database/mongodb/auth"
 	authservervalidator "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/grpc/server/auth/validator"
+	appjwt "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/jwt"
 	commonjwtissuer "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/crypto/jwt/issuer"
+	commonmongodbauth "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/database/mongodb/model/auth"
 	commonredisauth "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/database/redis/auth"
+	commongrpcclientctx "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/http/grpc/client/context"
+	commongrpcserverctx "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/http/grpc/server/context"
 	pbauth "github.com/pixel-plaza-dev/uru-databases-2-protobuf-common/protobuf/compiled/auth"
 	pbuser "github.com/pixel-plaza-dev/uru-databases-2-protobuf-common/protobuf/compiled/user"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"time"
 )
 
 // Server is the gRPC auth server
 type Server struct {
-	authDatabase        *auth.Database
+	authDatabase        *appmongodbauth.Database
 	userClient          pbuser.UserClient
 	jwtIssuer           commonjwtissuer.Issuer
+	jwtTokensDuration   map[string]time.Duration
 	logger              Logger
 	redisTokenValidator commonredisauth.TokenValidator
 	validator           *authservervalidator.Validator
@@ -23,9 +34,10 @@ type Server struct {
 
 // NewServer creates a new gRPC auth server
 func NewServer(
-	authDatabase *auth.Database,
+	authDatabase *appmongodbauth.Database,
 	userClient pbuser.UserClient,
 	jwtIssuer commonjwtissuer.Issuer,
+	jwtTokensDuration map[string]time.Duration,
 	logger Logger,
 	redisTokenValidator commonredisauth.TokenValidator,
 	validator *authservervalidator.Validator,
@@ -34,6 +46,7 @@ func NewServer(
 		authDatabase:        authDatabase,
 		userClient:          userClient,
 		jwtIssuer:           jwtIssuer,
+		jwtTokensDuration:   jwtTokensDuration,
 		logger:              logger,
 		redisTokenValidator: redisTokenValidator,
 		validator:           validator,
@@ -44,27 +57,148 @@ func NewServer(
 func (s Server) LogIn(
 	ctx context.Context,
 	request *pbauth.LogInRequest,
-) (*pbauth.LogInResponse, error) {
-	/*
-		// Validation variables
-		validations := make(map[string][]error)
+) (response *pbauth.LogInResponse, err error) {
+	// Validate the request
+	if err = s.validator.ValidateLogInRequest(request); err != nil {
+		s.logger.FailedToLogIn(err)
+		return nil, err
+	}
 
-		// Get the request fields
-		fieldsToValidate := map[string]string{
-			"Username": "username",
-			"Password": "password",
+	// Get outgoing gRPC context
+	grpcCtx, err := commongrpcclientctx.GetOutgoingCtx(ctx)
+	if err != nil {
+		return nil, InternalServerError
+	}
+
+	// Check if the password is correct and get the user ID
+	user, err := s.userClient.IsPasswordCorrect(
+		grpcCtx,
+		&pbuser.IsPasswordCorrectRequest{
+			Username: request.GetUsername(),
+			Password: request.GetPassword(),
+		},
+	)
+	if err != nil && status.Code(err) != codes.InvalidArgument {
+		s.logger.FailedToLogIn(err)
+		return nil, err
+	}
+
+	// Get the user ID object ID from the user ID string
+	userObjectId, objectIdErr := primitive.ObjectIDFromHex(user.GetUserId())
+	if objectIdErr != nil {
+		s.logger.FailedToLogIn(objectIdErr)
+		return nil, InternalServerError
+	}
+
+	// Get the parsed shared user ID from the shared user ID string
+	userSharedId, uuidErr := uuid.Parse(user.GetUserSharedId())
+	if uuidErr != nil {
+		s.logger.FailedToLogIn(uuidErr)
+		return nil, InternalServerError
+	}
+
+	// Get the client IP address
+	ipAddress, ipErr := commongrpcserverctx.GetClientIP(ctx)
+	if ipErr != nil {
+		ipAddress = ""
+	}
+
+	// Create the user log in attempt
+	newUserLogInAttempt := s.authDatabase.NewUserLogInAttempt(
+		&userObjectId,
+		ipAddress,
+		err == nil,
+	)
+
+	// Check if the password is incorrect
+	if err != nil {
+		// Log in failed
+		s.logger.FailedToLogIn(err)
+
+		// Insert the user log in attempt
+		if databaseErr := s.authDatabase.InsertUserLogInAttempt(
+			context.Background(),
+			newUserLogInAttempt,
+		); databaseErr != nil {
+			s.logger.FailedToCreateUserLogInAttempt(databaseErr)
+			return nil, InternalServerError
 		}
+		return nil, err
+	}
 
-		// Check if the required string fields are empty
-		commonvalidator.ValidNonEmptyStringFields(
-			&validations,
-			request,
-			&fieldsToValidate,
+	// Get the issued time and the expiration time
+	issuedAt := time.Now()
+	refreshExpiresAt := commonjwtissuer.GetExpirationTime(
+		issuedAt,
+		s.jwtTokensDuration[appjwt.RefreshTokenDuration],
+	)
+	accessExpiresAt := commonjwtissuer.GetExpirationTime(
+		issuedAt,
+		s.jwtTokensDuration[appjwt.AccessTokenDuration],
+	)
+
+	// Create the MongoDB JWT refresh token object
+	refreshId := primitive.NewObjectID()
+	newRefreshToken := commonmongodbauth.JwtRefreshToken{
+		ID:                 refreshId,
+		UserID:             userObjectId,
+		UserLogInAttemptID: newUserLogInAttempt.ID,
+		IssuedAt:           issuedAt,
+		ExpiresAt:          refreshExpiresAt,
+	}
+
+	// Create the MongoDB JWT access token object
+	accessId := primitive.NewObjectID()
+	newAccessToken := commonmongodbauth.JwtAccessToken{
+		ID:                accessId,
+		UserID:            userObjectId,
+		JwtRefreshTokenID: refreshId,
+		IssuedAt:          issuedAt,
+		ExpiresAt:         accessExpiresAt,
+	}
+
+	// Create the JWT claims
+	var newTokensClaims = make(map[string]*jwt.MapClaims)
+	for _, token := range []string{appjwt.AccessToken, appjwt.RefreshToken} {
+		newTokensClaims[token] = commonjwtissuer.GenerateClaims(
+			refreshId.String(),
+			user.GetUserId(),
+			userSharedId,
+			issuedAt,
+			refreshExpiresAt,
+			token == appjwt.RefreshToken,
 		)
+	}
 
-		return nil, nil
-	*/
-	return nil, InDevelopmentError
+	// Issue the JWT tokens
+	var newIssuedTokens = make(map[string]string)
+	for token, claims := range newTokensClaims {
+		issuedToken, tokenErr := s.jwtIssuer.IssueToken(claims)
+		if tokenErr != nil {
+			s.logger.FailedToLogIn(tokenErr)
+			return nil, InternalServerError
+		}
+		newIssuedTokens[token] = issuedToken
+	}
+
+	// Insert the tokens and the user log in attempt into the database
+	if err = s.authDatabase.InsertJwtRefreshToken(
+		&newRefreshToken,
+		&newAccessToken,
+		newUserLogInAttempt,
+	); err != nil {
+		s.logger.FailedToLogIn(err)
+		return nil, InternalServerError
+	}
+
+	// User logged in successfully
+	s.logger.LoggedIn(user.GetUserId(), request.GetUsername())
+
+	return &pbauth.LogInResponse{
+		Message:      LoggedIn,
+		RefreshToken: newIssuedTokens[appjwt.RefreshToken],
+		AccessToken:  newIssuedTokens[appjwt.AccessToken],
+	}, nil
 }
 
 // IsAccessTokenValid checks if an access token is valid

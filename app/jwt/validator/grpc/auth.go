@@ -26,7 +26,8 @@ func NewDefaultTokenValidator(
 
 // IsTokenValid checks if the token is valid
 func (d *DefaultTokenValidator) IsTokenValid(
-	token string, jwtId string, isRefreshToken bool) (bool, error) {
+	token string, jwtId string, isRefreshToken bool,
+) (bool, error) {
 	// Check if Redis is enabled
 	if d.redisTokenValidator != nil {
 		// Check if the token is in the Redis cache

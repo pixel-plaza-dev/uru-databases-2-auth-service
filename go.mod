@@ -3,9 +3,11 @@ module github.com/pixel-plaza-dev/uru-databases-2-auth-service
 go 1.23.2
 
 require (
+	github.com/golang-jwt/jwt/v5 v5.2.1
+	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
-	github.com/pixel-plaza-dev/uru-databases-2-go-service-common v0.6.25
-	github.com/pixel-plaza-dev/uru-databases-2-protobuf-common v0.1.33
+	github.com/pixel-plaza-dev/uru-databases-2-go-service-common v0.6.35
+	github.com/pixel-plaza-dev/uru-databases-2-protobuf-common v0.1.34
 	go.mongodb.org/mongo-driver v1.17.1
 	golang.org/x/net v0.30.0
 	google.golang.org/grpc v1.67.1
@@ -21,7 +23,6 @@ require (
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-redis/redis/v8 v8.11.5 // indirect
-	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/s2a-go v0.1.8 // indirect

@@ -4,8 +4,8 @@ import (
 	"context"
 	"flag"
 	"github.com/joho/godotenv"
-	"github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/database/mongodb"
-	"github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/database/mongodb/auth"
+	appmongodb "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/database/mongodb"
+	appmongodbauth "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/database/mongodb/auth"
 	appgrpc "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/grpc"
 	authserver "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/grpc/server/auth"
 	authservervalidator "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/grpc/server/auth/validator"
@@ -32,6 +32,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/credentials/oauth"
 	"net"
+	"time"
 )
 
 // Load environment variables
@@ -63,19 +64,19 @@ func main() {
 	logger.EnvironmentLogger.EnvironmentVariableLoaded(listener.PortKey)
 
 	// Get the MongoDB URI
-	mongoDbUri, err := commonenv.LoadVariable(auth.UriKey)
+	mongoDbUri, err := commonenv.LoadVariable(appmongodbauth.UriKey)
 	if err != nil {
 		panic(err)
 	}
-	logger.EnvironmentLogger.EnvironmentVariableLoaded(auth.UriKey)
+	logger.EnvironmentLogger.EnvironmentVariableLoaded(appmongodbauth.UriKey)
 
 	// Get the required MongoDB database name
-	mongoDbName, err := commonenv.LoadVariable(auth.DbNameKey)
+	mongoDbName, err := commonenv.LoadVariable(appmongodbauth.DbNameKey)
 	if err != nil {
 
 		panic(err)
 	}
-	logger.EnvironmentLogger.EnvironmentVariableLoaded(auth.DbNameKey)
+	logger.EnvironmentLogger.EnvironmentVariableLoaded(appmongodbauth.DbNameKey)
 
 	// Get the gRPC services URI
 	var uris = make(map[string]string)
@@ -99,6 +100,26 @@ func main() {
 		jwtKeys[key] = jwtKey
 	}
 
+	// Get the JWT tokens duration
+	var jwtTokensDuration = make(map[string]time.Duration)
+	for _, key := range []string{
+		appjwt.AccessTokenDuration,
+		appjwt.RefreshTokenDuration,
+	} {
+		jwtTokenDuration, err := commonenv.LoadVariable(key)
+		if err != nil {
+			panic(err)
+		}
+		logger.EnvironmentLogger.EnvironmentVariableLoaded(key)
+
+		// Parse the duration
+		parsedJwtTokenDuration, err := time.ParseDuration(jwtTokenDuration)
+		if err != nil {
+			panic(err)
+		}
+		jwtTokensDuration[key] = parsedJwtTokenDuration
+	}
+
 	// Load Google Cloud service account credentials
 	googleCredentials, err := commongcloud.LoadGoogleCredentials(context.Background())
 	if err != nil {
@@ -120,7 +141,7 @@ func main() {
 	// Get the MongoDB configuration
 	mongoDbConfig := &commonmongodb.Config{
 		Uri:     mongoDbUri,
-		Timeout: mongodb.ConnectionCtxTimeout,
+		Timeout: appmongodb.ConnectionCtxTimeout,
 	}
 
 	// Get the connection handler
@@ -128,10 +149,6 @@ func main() {
 
 	// Connect to MongoDB and get the client
 	mongodbClient, err := mongodbConnection.Connect()
-	if err != nil {
-		panic(err)
-	}
-
 	if err != nil {
 		panic(err)
 	}
@@ -196,7 +213,7 @@ func main() {
 	userClient := pbuser.NewUserClient(conns[appgrpc.UserServiceUriKey])
 
 	// Create auth database handler
-	authDatabase, err := auth.NewDatabase(
+	authDatabase, err := appmongodbauth.NewDatabase(
 		mongodbClient,
 		mongoDbName,
 		userClient,
@@ -254,6 +271,7 @@ func main() {
 		authDatabase,
 		userClient,
 		jwtIssuer,
+		jwtTokensDuration,
 		logger.AuthServerLogger,
 		nil,
 		authServerValidator,
