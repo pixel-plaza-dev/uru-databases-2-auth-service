@@ -11,8 +11,8 @@ import (
 	authservervalidator "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/grpc/server/auth/validator"
 	appjwt "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/jwt"
 	jwtvalidatorgrpc "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/jwt/validator/grpc"
-	"github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/listener"
-	"github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/logger"
+	applistener "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/listener"
+	applogger "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/logger"
 	commongcloud "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/cloud/gcloud"
 	commonenv "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/config/env"
 	commonflag "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/config/flag"
@@ -24,9 +24,9 @@ import (
 	commongrpcvalidator "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/http/grpc/server/validator"
 	commonlistener "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/http/listener"
 	commontls "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/http/tls"
-	pbauth "github.com/pixel-plaza-dev/uru-databases-2-protobuf-common/protobuf/compiled/auth"
-	pbuser "github.com/pixel-plaza-dev/uru-databases-2-protobuf-common/protobuf/compiled/user"
-	detailsauth "github.com/pixel-plaza-dev/uru-databases-2-protobuf-common/protobuf/details/auth"
+	pbauth "github.com/pixel-plaza-dev/uru-databases-2-protobuf-common/compiled/pixel_plaza/auth"
+	pbuser "github.com/pixel-plaza-dev/uru-databases-2-protobuf-common/compiled/pixel_plaza/user"
+	pbconfigauth "github.com/pixel-plaza-dev/uru-databases-2-protobuf-common/config/grpc/auth"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -40,7 +40,7 @@ func init() {
 	// Declare flags and parse them
 	commonflag.SetModeFlag()
 	flag.Parse()
-	logger.FlagLogger.ModeFlagSet(commonflag.Mode)
+	applogger.Flag.ModeFlagSet(commonflag.Mode)
 
 	// Check if the environment is production
 	if commonflag.Mode.IsProd() {
@@ -56,19 +56,19 @@ func main() {
 	// Get the listener port
 	servicePort, err := commonlistener.LoadServicePort(
 		"0.0.0.0",
-		listener.PortKey,
+		applistener.PortKey,
 	)
 	if err != nil {
 		panic(err)
 	}
-	logger.EnvironmentLogger.EnvironmentVariableLoaded(listener.PortKey)
+	applogger.Environment.EnvironmentVariableLoaded(applistener.PortKey)
 
 	// Get the MongoDB URI
 	mongoDbUri, err := commonenv.LoadVariable(appmongodbauth.UriKey)
 	if err != nil {
 		panic(err)
 	}
-	logger.EnvironmentLogger.EnvironmentVariableLoaded(appmongodbauth.UriKey)
+	applogger.Environment.EnvironmentVariableLoaded(appmongodbauth.UriKey)
 
 	// Get the required MongoDB database name
 	mongoDbName, err := commonenv.LoadVariable(appmongodbauth.DbNameKey)
@@ -76,7 +76,7 @@ func main() {
 
 		panic(err)
 	}
-	logger.EnvironmentLogger.EnvironmentVariableLoaded(appmongodbauth.DbNameKey)
+	applogger.Environment.EnvironmentVariableLoaded(appmongodbauth.DbNameKey)
 
 	// Get the gRPC services URI
 	var uris = make(map[string]string)
@@ -85,7 +85,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		logger.EnvironmentLogger.EnvironmentVariableLoaded(key)
+		applogger.Environment.EnvironmentVariableLoaded(key)
 		uris[key] = uri
 	}
 
@@ -96,7 +96,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		logger.EnvironmentLogger.EnvironmentVariableLoaded(key)
+		applogger.Environment.EnvironmentVariableLoaded(key)
 		jwtKeys[key] = jwtKey
 	}
 
@@ -110,7 +110,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		logger.EnvironmentLogger.EnvironmentVariableLoaded(key)
+		applogger.Environment.EnvironmentVariableLoaded(key)
 
 		// Parse the duration
 		parsedJwtTokenDuration, err := time.ParseDuration(jwtTokenDuration)
@@ -155,9 +155,9 @@ func main() {
 	defer func() {
 		// Disconnect from MongoDB
 		mongodbConnection.Disconnect()
-		logger.MongoDbLogger.DisconnectedFromDatabase()
+		applogger.MongoDb.DisconnectedFromDatabase()
 	}()
-	logger.MongoDbLogger.ConnectedToDatabase()
+	applogger.MongoDb.ConnectedToDatabase()
 
 	// Load transport credentials
 	var transportCredentials credentials.TransportCredentials
@@ -243,7 +243,7 @@ func main() {
 	// Create server authentication interceptor
 	serverAuthInterceptor, err := serverauth.NewInterceptor(
 		jwtValidator,
-		&detailsauth.GRPCInterceptions,
+		&pbconfigauth.Interceptions,
 	)
 	if err != nil {
 		panic(err)
@@ -272,9 +272,10 @@ func main() {
 		userClient,
 		jwtIssuer,
 		jwtTokensDuration,
-		logger.AuthServerLogger,
+		applogger.AuthServer,
 		nil,
 		authServerValidator,
+		applogger.JwtValidator,
 	)
 
 	// Register the auth server with the gRPC server
@@ -292,7 +293,7 @@ func main() {
 	}()
 
 	// Serve the gRPC server
-	logger.ListenerLogger.ServerStarted(servicePort.Port)
+	applogger.Listener.ServerStarted(servicePort.Port)
 	if err = s.Serve(portListener); err != nil {
 		panic(commonlistener.FailedToServeError)
 	}

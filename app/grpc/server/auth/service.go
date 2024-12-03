@@ -1,22 +1,28 @@
 package auth
 
 import (
+	"errors"
+	"github.com/go-redis/redis/v8"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	appmongodbauth "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/database/mongodb/auth"
 	authservervalidator "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/grpc/server/auth/validator"
 	appjwt "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/jwt"
 	commonjwtissuer "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/crypto/jwt/issuer"
+	commonjwtvalidator "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/crypto/jwt/validator"
 	commonmongodbauth "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/database/mongodb/model/auth"
 	commonredisauth "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/database/redis/auth"
 	commongrpcclientctx "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/http/grpc/client/context"
 	commongrpcserverctx "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/http/grpc/server/context"
-	pbauth "github.com/pixel-plaza-dev/uru-databases-2-protobuf-common/protobuf/compiled/auth"
-	pbuser "github.com/pixel-plaza-dev/uru-databases-2-protobuf-common/protobuf/compiled/user"
+	pbauth "github.com/pixel-plaza-dev/uru-databases-2-protobuf-common/compiled/pixel_plaza/auth"
+	pbuser "github.com/pixel-plaza-dev/uru-databases-2-protobuf-common/compiled/pixel_plaza/user"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	pbempty "google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"time"
 )
 
@@ -29,6 +35,7 @@ type Server struct {
 	logger              Logger
 	redisTokenValidator commonredisauth.TokenValidator
 	validator           *authservervalidator.Validator
+	jwtValidatorLogger  commonjwtvalidator.Logger
 	pbauth.UnimplementedAuthServer
 }
 
@@ -41,6 +48,7 @@ func NewServer(
 	logger Logger,
 	redisTokenValidator commonredisauth.TokenValidator,
 	validator *authservervalidator.Validator,
+	jwtValidatorLogger commonjwtvalidator.Logger,
 ) *Server {
 	return &Server{
 		authDatabase:        authDatabase,
@@ -50,6 +58,7 @@ func NewServer(
 		logger:              logger,
 		redisTokenValidator: redisTokenValidator,
 		validator:           validator,
+		jwtValidatorLogger:  jwtValidatorLogger,
 	}
 }
 
@@ -137,20 +146,26 @@ func (s Server) LogIn(
 		s.jwtTokensDuration[appjwt.AccessTokenDuration],
 	)
 
+	// Create the JWT ID
+	var jwtIds = make(map[string]primitive.ObjectID)
+	for _, token := range []string{appjwt.RefreshToken, appjwt.AccessToken} {
+		jwtIds[token] = primitive.NewObjectID()
+	}
+
 	// Create the MongoDB JWT refresh token object
 	refreshId := primitive.NewObjectID()
 	newRefreshToken := commonmongodbauth.JwtRefreshToken{
-		ID:                 refreshId,
+		ID:                 jwtIds[appjwt.RefreshToken],
 		UserID:             userObjectId,
 		UserLogInAttemptID: newUserLogInAttempt.ID,
+		IPv4Address:        ipAddress,
 		IssuedAt:           issuedAt,
 		ExpiresAt:          refreshExpiresAt,
 	}
 
 	// Create the MongoDB JWT access token object
-	accessId := primitive.NewObjectID()
 	newAccessToken := commonmongodbauth.JwtAccessToken{
-		ID:                accessId,
+		ID:                jwtIds[appjwt.AccessToken],
 		UserID:            userObjectId,
 		JwtRefreshTokenID: refreshId,
 		IssuedAt:          issuedAt,
@@ -191,6 +206,21 @@ func (s Server) LogIn(
 		return nil, InternalServerError
 	}
 
+	// If Redis is enabled, insert the refresh and access token into it
+	if s.redisTokenValidator != nil {
+		for _, token := range []string{
+			appjwt.AccessToken,
+			appjwt.RefreshToken,
+		} {
+			if err = s.redisTokenValidator.AddToken(
+				jwtIds[token].String(),
+				s.jwtTokensDuration[token],
+			); err != nil {
+				s.logger.FailedToAddTokenToRedis(err)
+			}
+		}
+	}
+
 	// User logged in successfully
 	s.logger.LoggedIn(user.GetUserId(), request.GetUsername())
 
@@ -205,16 +235,200 @@ func (s Server) LogIn(
 func (s Server) IsAccessTokenValid(
 	ctx context.Context,
 	request *pbauth.IsAccessTokenValidRequest,
-) (*pbauth.IsAccessTokenValidResponse, error) {
-	// Check redis
-	return nil, InDevelopmentError
+) (response *pbauth.IsAccessTokenValidResponse, err error) {
+	// Validate the request
+	if err = s.validator.ValidateIsAccessTokenValidRequest(request); err != nil {
+		s.logger.FailedToCheckIfAccessTokenIsValid(err)
+		return nil, InternalServerError
+	}
+
+	// If Redis is enabled, check if the token is in Redis
+	var isValid bool
+	if s.redisTokenValidator != nil {
+		isValid, err = s.redisTokenValidator.IsTokenValid(request.GetJwtId())
+	} else {
+		isValid, err = s.authDatabase.IsAccessTokenValid(
+			context.Background(),
+			request.GetJwtId(),
+		)
+	}
+
+	// Check if there was an error
+	if err != nil && !errors.Is(
+		mongo.ErrNoDocuments,
+		err,
+	) && !errors.Is(redis.Nil, err) {
+		s.logger.FailedToCheckIfAccessTokenIsValid(err)
+		return nil, InternalServerError
+	}
+
+	// Check if the token was not found
+	if err != nil {
+		s.logger.TokenNotFound(request.GetJwtId())
+		if s.redisTokenValidator != nil {
+			return nil, status.Error(codes.NotFound, TokenNotFoundOrHasExpired)
+		}
+		return nil, status.Error(codes.NotFound, TokenNotFound)
+	}
+
+	// Checked if the token is valid
+	s.logger.CheckedIfAccessTokenIsValid(request.GetJwtId(), isValid)
+
+	return &pbauth.IsAccessTokenValidResponse{
+		Message: CheckedIfAccessTokenIsValid,
+		IsValid: isValid,
+	}, nil
 }
 
 // IsRefreshTokenValid checks if a refresh token is valid
 func (s Server) IsRefreshTokenValid(
 	ctx context.Context,
 	request *pbauth.IsRefreshTokenValidRequest,
-) (*pbauth.IsRefreshTokenValidResponse, error) {
+) (response *pbauth.IsRefreshTokenValidResponse, err error) {
+	// Validate the request
+	if err = s.validator.ValidateIsRefreshTokenValidRequest(request); err != nil {
+		s.logger.FailedToCheckIfRefreshTokenIsValid(err)
+		return nil, InternalServerError
+	}
+
+	// If Redis is enabled, check if the token is in Redis
+	var isValid bool
+	if s.redisTokenValidator != nil {
+		isValid, err = s.redisTokenValidator.IsTokenValid(request.GetJwtId())
+	} else {
+		isValid, err = s.authDatabase.IsRefreshTokenValid(
+			context.Background(),
+			request.GetJwtId(),
+		)
+	}
+
+	// Check if there was an error
+	if err != nil && !errors.Is(
+		mongo.ErrNoDocuments,
+		err,
+	) && !errors.Is(redis.Nil, err) {
+		s.logger.FailedToCheckIfRefreshTokenIsValid(err)
+		return nil, InternalServerError
+	}
+
+	// Check if the token was not found
+	if err != nil {
+		s.logger.TokenNotFound(request.GetJwtId())
+		if s.redisTokenValidator != nil {
+			return nil, status.Error(codes.NotFound, TokenNotFoundOrHasExpired)
+		}
+		return nil, status.Error(codes.NotFound, TokenNotFound)
+	}
+
+	// Checked if the token is valid
+	s.logger.CheckedIfRefreshTokenIsValid(request.GetJwtId(), isValid)
+
+	return &pbauth.IsRefreshTokenValidResponse{
+		Message: CheckedIfRefreshTokenIsValid,
+		IsValid: isValid,
+	}, nil
+}
+
+// GetRefreshTokensInformation gets all user's refresh tokens information
+func (s Server) GetRefreshTokensInformation(
+	ctx context.Context,
+	request *pbempty.Empty,
+) (*pbauth.GetRefreshTokensInformationResponse, error) {
+	// Get the user ID from the access token
+	userId, err := commongrpcserverctx.GetCtxTokenClaimsUserId(ctx)
+	if err != nil {
+		s.jwtValidatorLogger.MissingTokenClaimsUserId()
+		return nil, InternalServerError
+	}
+
+	// Get the user's refresh tokens
+	refreshTokens, err := s.authDatabase.GetUserRefreshTokens(
+		context.Background(),
+		userId,
+	)
+	if err != nil {
+		s.logger.FailedToGetRefreshTokensInformation(err)
+		return nil, InternalServerError
+	}
+
+	// Parse user's refresh tokens information
+	var parsedRefreshTokens = make(
+		[]*pbauth.RefreshTokenInformation,
+		len(refreshTokens),
+	)
+	for i, userSession := range refreshTokens {
+		parsedRefreshTokens[i] = &pbauth.RefreshTokenInformation{
+			Id:          userSession.ID.Hex(),
+			Ipv4Address: userSession.IPv4Address,
+			IssuedAt:    timestamppb.New(userSession.IssuedAt),
+			ExpiresAt:   timestamppb.New(userSession.ExpiresAt),
+		}
+	}
+
+	// Fetched user's refresh tokens information successfully
+	s.logger.GetRefreshTokensInformation(userId)
+
+	return &pbauth.GetRefreshTokensInformationResponse{
+		Message:                  FetchedUserRefreshTokens,
+		RefreshTokensInformation: parsedRefreshTokens,
+	}, nil
+}
+
+// RevokeRefreshToken revokes a user's refresh token
+func (s Server) RevokeRefreshToken(
+	ctx context.Context,
+	request *pbauth.RevokeRefreshTokenRequest,
+) (response *pbauth.RevokeRefreshTokenResponse, err error) {
+	// Validate the request
+	if err = s.validator.ValidateRevokeRefreshTokenRequest(request); err != nil {
+		s.logger.FailedToRevokeUserRefreshToken(err)
+		return nil, InternalServerError
+	}
+
+	// Get the user ID from the access token
+	userId, err := commongrpcserverctx.GetCtxTokenClaimsUserId(ctx)
+	if err != nil {
+		s.jwtValidatorLogger.MissingTokenClaimsUserId()
+		return nil, InternalServerError
+	}
+
+	// Revoke user's refresh token
+	err = s.authDatabase.RevokeUserRefreshToken(
+		request.GetJwtId(),
+		userId,
+	)
+	if err != nil && !errors.Is(mongo.ErrNoDocuments, err) {
+		s.logger.FailedToRevokeUserRefreshToken(err)
+		return nil, InternalServerError
+	}
+
+	// Check if the user's refresh token was not found
+	if err != nil {
+		s.logger.UserTokenNotFound(userId, request.GetJwtId())
+		return nil, status.Error(codes.NotFound, UserTokenNotFound)
+	}
+
+	// Revoke user's refresh tokens successfully
+	s.logger.RevokeUserRefreshTokens(userId)
+
+	return &pbauth.RevokeRefreshTokenResponse{
+		Message: FetchedUserRefreshToken,
+	}, nil
+}
+
+// GetRefreshTokenInformation gets the refresh token information
+func (s Server) GetRefreshTokenInformation(
+	ctx context.Context,
+	request *pbauth.GetRefreshTokenInformationRequest,
+) (*pbauth.GetRefreshTokenInformationResponse, error) {
+	return nil, InDevelopmentError
+}
+
+// RevokeRefreshTokens revokes all the user's refresh tokens
+func (s Server) RevokeRefreshTokens(
+	ctx context.Context,
+	request *pbempty.Empty,
+) (*pbauth.RevokeRefreshTokensResponse, error) {
 	// Check redis
 	return nil, InDevelopmentError
 }
@@ -222,7 +436,7 @@ func (s Server) IsRefreshTokenValid(
 // RefreshToken refreshes a token
 func (s Server) RefreshToken(
 	ctx context.Context,
-	request *pbauth.RefreshTokenRequest,
+	request *pbempty.Empty,
 ) (*pbauth.RefreshTokenResponse, error) {
 	// Check redis
 	return nil, InDevelopmentError
@@ -231,34 +445,8 @@ func (s Server) RefreshToken(
 // LogOut logs out a user
 func (s Server) LogOut(
 	ctx context.Context,
-	request *pbauth.LogOutRequest,
+	request *pbempty.Empty,
 ) (*pbauth.LogOutResponse, error) {
-	// Check redis
-	return nil, InDevelopmentError
-}
-
-// GetSessions gets user' sessions
-func (s Server) GetSessions(
-	ctx context.Context,
-	request *pbauth.GetSessionsRequest,
-) (*pbauth.GetSessionsResponse, error) {
-	return nil, InDevelopmentError
-}
-
-// CloseSession closes a user' session
-func (s Server) CloseSession(
-	ctx context.Context,
-	request *pbauth.CloseSessionRequest,
-) (*pbauth.CloseSessionResponse, error) {
-	// Check redis
-	return nil, InDevelopmentError
-}
-
-// CloseSessions closes user' sessions
-func (s Server) CloseSessions(
-	ctx context.Context,
-	request *pbauth.CloseSessionsRequest,
-) (*pbauth.CloseSessionsResponse, error) {
 	// Check redis
 	return nil, InDevelopmentError
 }
@@ -290,7 +478,7 @@ func (s Server) GetPermission(
 // GetPermissions gets all the permissions
 func (s Server) GetPermissions(
 	ctx context.Context,
-	request *pbauth.GetPermissionsRequest,
+	request *pbempty.Empty,
 ) (*pbauth.GetPermissionsResponse, error) {
 	return nil, InDevelopmentError
 }
@@ -338,7 +526,7 @@ func (s Server) RevokeRole(
 // GetRoles gets all the roles
 func (s Server) GetRoles(
 	ctx context.Context,
-	request *pbauth.GetRolesRequest,
+	request *pbempty.Empty,
 ) (*pbauth.GetRolesResponse, error) {
 	return nil, InDevelopmentError
 }

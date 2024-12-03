@@ -2,9 +2,11 @@ package auth
 
 import (
 	"context"
+	"errors"
 	commonmongodb "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/database/mongodb"
 	commonmongodbauth "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/database/mongodb/model/auth"
-	pbuser "github.com/pixel-plaza-dev/uru-databases-2-protobuf-common/protobuf/compiled/user"
+	pbuser "github.com/pixel-plaza-dev/uru-databases-2-protobuf-common/compiled/pixel_plaza/user"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"time"
@@ -163,18 +165,237 @@ func (d *Database) InsertJwtRefreshToken(
 	return err
 }
 
+// FindRefreshToken finds a refresh token in the database
+func (d *Database) FindRefreshToken(
+	ctx context.Context,
+	filter interface{},
+	projection interface{},
+	sort interface{},
+) (
+	jwtRefreshToken *commonmongodbauth.JwtRefreshToken,
+	err error,
+) {
+	// Set the default projection
+	if projection == nil {
+		projection = bson.M{"_id": 1}
+	}
+
+	// Create the find options
+	findOptions := commonmongodb.PrepareFindOneOptions(projection, sort)
+
+	// Find the refresh token
+	err = d.GetCollection(JwtRefreshTokenCollection).FindOne(
+		ctx,
+		filter,
+		findOptions,
+	).Decode(jwtRefreshToken)
+	return jwtRefreshToken, err
+}
+
 // IsRefreshTokenValid checks if a refresh token is valid
-func (d *Database) IsRefreshTokenValid(refreshToken string) (
+func (d *Database) IsRefreshTokenValid(ctx context.Context, jwtId string) (
 	valid bool,
 	err error,
 ) {
-	return false, InDevelopmentError
+	// Create the object ID
+	jwtObjectId, err := primitive.ObjectIDFromHex(jwtId)
+	if err != nil {
+		return false, err
+	}
+
+	// Find the refresh token
+	refreshToken, err := d.FindRefreshToken(
+		ctx,
+		bson.M{"_id": jwtObjectId, "revoked_at": bson.M{"$exists": true}},
+		bson.M{"expires_at": 1},
+		nil,
+	)
+	if !errors.Is(err, mongo.ErrNoDocuments) {
+		return refreshToken.ExpiresAt.After(time.Now()), nil
+	}
+	return false, err
+}
+
+// FindUserRefreshTokens gets all the user's refresh tokens
+func (d *Database) FindUserRefreshTokens(
+	ctx context.Context,
+	userId string,
+	projection interface{},
+	sort interface{},
+) (
+	refreshTokens []*commonmongodbauth.JwtRefreshToken,
+	err error,
+) {
+	// Convert the user ID to an object ID
+	userObjectId, err := primitive.ObjectIDFromHex(userId)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create the find options
+	findOptions := commonmongodb.PrepareFindOptions(projection, sort, 0, 0)
+
+	// Find the sessions
+	cursor, err := d.GetCollection(JwtRefreshTokenCollection).Find(
+		ctx,
+		bson.M{"user_id": userObjectId, "revoked_at": bson.M{"$exists": false}},
+		findOptions,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Iterate through the cursor
+	for cursor.Next(ctx) {
+		// Decode the session
+		var refreshToken commonmongodbauth.JwtRefreshToken
+		if err = cursor.Decode(&refreshToken); err != nil {
+			return nil, err
+		}
+		refreshTokens = append(refreshTokens, &refreshToken)
+	}
+	return refreshTokens, nil
+}
+
+// GetUserRefreshTokens gets all the user's refresh tokens
+func (d *Database) GetUserRefreshTokens(
+	ctx context.Context,
+	userId string,
+) (
+	sessions []*commonmongodbauth.JwtRefreshToken,
+	err error,
+) {
+	// Find the user's sessions
+	sessions, err = d.FindUserRefreshTokens(
+		ctx,
+		userId,
+		bson.M{"_id": 1, "issued_at": 1, "expires_at": 1},
+		bson.M{"issued_at": -1},
+	)
+	return sessions, err
+}
+
+// FindAccessToken finds an access token in the database
+func (d *Database) FindAccessToken(
+	ctx context.Context,
+	filter interface{},
+	projection interface{},
+	sort interface{},
+) (
+	jwtAccessToken *commonmongodbauth.JwtAccessToken,
+	err error,
+) {
+	// Set the default projection
+	if projection == nil {
+		projection = bson.M{"_id": 1}
+	}
+
+	// Create the find options
+	findOptions := commonmongodb.PrepareFindOneOptions(projection, sort)
+
+	// Find the access token
+	err = d.GetCollection(JwtAccessTokenCollection).FindOne(
+		ctx,
+		filter,
+		findOptions,
+	).Decode(jwtAccessToken)
+	return jwtAccessToken, err
 }
 
 // IsAccessTokenValid checks if an access token is valid
-func (d *Database) IsAccessTokenValid(accessToken string) (
+func (d *Database) IsAccessTokenValid(ctx context.Context, jwtId string) (
 	valid bool,
 	err error,
 ) {
-	return false, InDevelopmentError
+	// Create the object ID
+	jwtObjectId, err := primitive.ObjectIDFromHex(jwtId)
+	if err != nil {
+		return false, err
+	}
+
+	// Find the access token
+	accessToken, err := d.FindAccessToken(
+		ctx,
+		bson.M{"_id": jwtObjectId, "revoked_at": bson.M{"$exists": true}},
+		bson.M{"expires_at": 1},
+		nil,
+	)
+	if !errors.Is(err, mongo.ErrNoDocuments) {
+		return accessToken.ExpiresAt.After(time.Now()), nil
+	}
+	return false, err
+}
+
+// UpdateJwtRefreshToken updates a JWT refresh token in the database
+func (d *Database) UpdateJwtRefreshToken(
+	ctx context.Context,
+	filter interface{},
+	update interface{},
+) (
+	err error,
+) {
+	_, err = d.GetCollection(JwtRefreshTokenCollection).UpdateOne(
+		ctx,
+		filter,
+		update,
+	)
+	return err
+}
+
+// UpdateJwtAccessToken updates a JWT access token in the database
+func (d *Database) UpdateJwtAccessToken(
+	ctx context.Context,
+	filter interface{},
+	update interface{},
+) (
+	err error,
+) {
+	_, err = d.GetCollection(JwtAccessTokenCollection).UpdateOne(
+		ctx,
+		filter,
+		update,
+	)
+	return err
+}
+
+// RevokeUserRefreshToken revokes user's refresh token and its access token
+func (d *Database) RevokeUserRefreshToken(
+	jwtId string,
+	userId string,
+) (
+	err error,
+) {
+	// Create the objects ID from the JWT and user IDs
+	var objectsId = make(map[string]primitive.ObjectID)
+	for _, id := range []string{jwtId, userId} {
+		objectId, err := primitive.ObjectIDFromHex(id)
+		if err != nil {
+			return err
+		}
+
+		objectsId[id] = objectId
+	}
+
+	// Run the transaction
+	err = commonmongodb.CreateTransaction(
+		d.client, func(sc mongo.SessionContext) error {
+			// Update the refresh token
+			if err = d.UpdateJwtRefreshToken(
+				sc,
+				bson.M{"_id": objectsId[jwtId], "user_id": objectsId[userId]},
+				bson.M{"$set": bson.M{"revoked_at": time.Now()}},
+			); err != nil {
+				return err
+			}
+
+			// Update its access token
+			err = d.UpdateJwtAccessToken(
+				sc,
+				bson.M{"jwt_refresh_token_id": objectsId[jwtId]},
+				bson.M{"$set": bson.M{"revoked_at": time.Now()}},
+			)
+			return err
+		},
+	)
+	return err
 }

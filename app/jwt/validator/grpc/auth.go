@@ -1,6 +1,7 @@
 package grpc
 
 import (
+	"context"
 	"github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/database/mongodb/auth"
 	commonredisauth "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/database/redis/auth"
 )
@@ -37,7 +38,7 @@ func (d *DefaultTokenValidator) IsTokenValid(
 	// Validate the token
 	if isRefreshToken {
 		// Check if the refresh token is valid
-		isValid, err := d.authDatabase.IsRefreshTokenValid(token)
+		isValid, err := d.authDatabase.IsRefreshTokenValid(context.Background(), jwtId)
 		if err != nil {
 			return false, err
 		}
@@ -45,7 +46,7 @@ func (d *DefaultTokenValidator) IsTokenValid(
 	}
 
 	// Check if the access token is valid
-	isValid, err := d.authDatabase.IsAccessTokenValid(token)
+	isValid, err := d.authDatabase.IsAccessTokenValid(context.Background(), jwtId)
 	if err != nil {
 		return false, err
 	}
