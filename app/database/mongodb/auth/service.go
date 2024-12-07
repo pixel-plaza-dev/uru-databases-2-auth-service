@@ -171,8 +171,8 @@ func (d *Database) FindRefreshToken(
 	projection interface{},
 	sort interface{},
 ) (
-	jwtRefreshToken *commonmongodbauth.JwtRefreshToken,
-	err error,
+	*commonmongodbauth.JwtRefreshToken,
+	error,
 ) {
 	// Set the default projection
 	if projection == nil {
@@ -183,10 +183,10 @@ func (d *Database) FindRefreshToken(
 	findOptions := commonmongodb.PrepareFindOneOptions(projection, sort)
 
 	// Initialize the jwtRefreshToken variable
-	jwtRefreshToken = &commonmongodbauth.JwtRefreshToken{}
+	jwtRefreshToken := &commonmongodbauth.JwtRefreshToken{}
 
 	// Find the refresh token
-	err = d.GetCollection(JwtRefreshTokenCollection).FindOne(
+	err := d.GetCollection(JwtRefreshTokenCollection).FindOne(
 		ctx,
 		filter,
 		findOptions,
@@ -284,8 +284,8 @@ func (d *Database) FindAccessToken(
 	projection interface{},
 	sort interface{},
 ) (
-	jwtAccessToken *commonmongodbauth.JwtAccessToken,
-	err error,
+	*commonmongodbauth.JwtAccessToken,
+	error,
 ) {
 	// Set the default projection
 	if projection == nil {
@@ -296,10 +296,10 @@ func (d *Database) FindAccessToken(
 	findOptions := commonmongodb.PrepareFindOneOptions(projection, sort)
 
 	// Initialize the jwtAccessToken variable
-	jwtAccessToken = &commonmongodbauth.JwtAccessToken{}
+	jwtAccessToken := &commonmongodbauth.JwtAccessToken{}
 
 	// Find the access token
-	err = d.GetCollection(JwtAccessTokenCollection).FindOne(
+	err := d.GetCollection(JwtAccessTokenCollection).FindOne(
 		ctx,
 		filter,
 		findOptions,
