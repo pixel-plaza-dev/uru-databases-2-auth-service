@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"errors"
 	commonmongodb "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/database/mongodb"
 	commonmongodbauth "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/database/mongodb/model/auth"
 	pbuser "github.com/pixel-plaza-dev/uru-databases-2-protobuf-common/compiled/pixel_plaza/user"
@@ -183,6 +182,9 @@ func (d *Database) FindRefreshToken(
 	// Create the find options
 	findOptions := commonmongodb.PrepareFindOneOptions(projection, sort)
 
+	// Initialize the jwtRefreshToken variable
+	jwtRefreshToken = &commonmongodbauth.JwtRefreshToken{}
+
 	// Find the refresh token
 	err = d.GetCollection(JwtRefreshTokenCollection).FindOne(
 		ctx,
@@ -206,14 +208,14 @@ func (d *Database) IsRefreshTokenValid(ctx context.Context, jwtId string) (
 	// Find the refresh token
 	refreshToken, err := d.FindRefreshToken(
 		ctx,
-		bson.M{"_id": jwtObjectId, "revoked_at": bson.M{"$exists": true}},
+		bson.M{"_id": jwtObjectId, "revoked_at": bson.M{"$exists": false}},
 		bson.M{"expires_at": 1},
 		nil,
 	)
-	if !errors.Is(err, mongo.ErrNoDocuments) {
-		return refreshToken.ExpiresAt.After(time.Now()), nil
+	if err != nil {
+		return false, err
 	}
-	return false, err
+	return refreshToken.ExpiresAt.After(time.Now()), nil
 }
 
 // FindUserRefreshTokens gets all the user's refresh tokens
@@ -293,6 +295,9 @@ func (d *Database) FindAccessToken(
 	// Create the find options
 	findOptions := commonmongodb.PrepareFindOneOptions(projection, sort)
 
+	// Initialize the jwtAccessToken variable
+	jwtAccessToken = &commonmongodbauth.JwtAccessToken{}
+
 	// Find the access token
 	err = d.GetCollection(JwtAccessTokenCollection).FindOne(
 		ctx,
@@ -316,14 +321,14 @@ func (d *Database) IsAccessTokenValid(ctx context.Context, jwtId string) (
 	// Find the access token
 	accessToken, err := d.FindAccessToken(
 		ctx,
-		bson.M{"_id": jwtObjectId, "revoked_at": bson.M{"$exists": true}},
+		bson.M{"_id": jwtObjectId, "revoked_at": bson.M{"$exists": false}},
 		bson.M{"expires_at": 1},
 		nil,
 	)
-	if !errors.Is(err, mongo.ErrNoDocuments) {
-		return accessToken.ExpiresAt.After(time.Now()), nil
+	if err != nil {
+		return false, err
 	}
-	return false, err
+	return accessToken.ExpiresAt.After(time.Now()), nil
 }
 
 // UpdateJwtRefreshToken updates a JWT refresh token in the database
