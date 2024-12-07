@@ -137,14 +137,13 @@ func (s Server) LogIn(
 
 	// Get the issued time and the expiration time
 	issuedAt := time.Now()
-	refreshExpiresAt := commonjwtissuer.GetExpirationTime(
-		issuedAt,
-		s.jwtTokensDuration[appjwt.RefreshTokenDuration],
-	)
-	accessExpiresAt := commonjwtissuer.GetExpirationTime(
-		issuedAt,
-		s.jwtTokensDuration[appjwt.AccessTokenDuration],
-	)
+	var expiresAt = make(map[string]time.Time)
+	for _, token := range []string{appjwt.RefreshToken, appjwt.AccessToken} {
+		expiresAt[token] = commonjwtissuer.GetExpirationTime(
+			issuedAt,
+			s.jwtTokensDuration[token],
+		)
+	}
 
 	// Create the JWT ID
 	var jwtIds = make(map[string]primitive.ObjectID)
@@ -160,7 +159,7 @@ func (s Server) LogIn(
 		UserLogInAttemptID: newUserLogInAttempt.ID,
 		IPv4Address:        ipAddress,
 		IssuedAt:           issuedAt,
-		ExpiresAt:          refreshExpiresAt,
+		ExpiresAt:          expiresAt[appjwt.RefreshToken],
 	}
 
 	// Create the MongoDB JWT access token object
@@ -169,18 +168,18 @@ func (s Server) LogIn(
 		UserID:            userObjectId,
 		JwtRefreshTokenID: refreshId,
 		IssuedAt:          issuedAt,
-		ExpiresAt:         accessExpiresAt,
+		ExpiresAt:         expiresAt[appjwt.AccessToken],
 	}
 
 	// Create the JWT claims
 	var newTokensClaims = make(map[string]*jwt.MapClaims)
 	for _, token := range []string{appjwt.AccessToken, appjwt.RefreshToken} {
 		newTokensClaims[token] = commonjwtissuer.GenerateClaims(
-			refreshId.String(),
+			jwtIds[token].Hex(),
 			user.GetUserId(),
 			userSharedId,
 			issuedAt,
-			refreshExpiresAt,
+			expiresAt[token],
 			token == appjwt.RefreshToken,
 		)
 	}

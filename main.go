@@ -102,15 +102,15 @@ func main() {
 
 	// Get the JWT tokens duration
 	var jwtTokensDuration = make(map[string]time.Duration)
-	for _, key := range []string{
-		appjwt.AccessTokenDuration,
-		appjwt.RefreshTokenDuration,
+	for key, value := range map[string]string{
+		appjwt.AccessToken:  appjwt.AccessTokenDuration,
+		appjwt.RefreshToken: appjwt.RefreshTokenDuration,
 	} {
-		jwtTokenDuration, err := commonenv.LoadVariable(key)
+		jwtTokenDuration, err := commonenv.LoadVariable(value)
 		if err != nil {
 			panic(err)
 		}
-		applogger.Environment.EnvironmentVariableLoaded(key)
+		applogger.Environment.EnvironmentVariableLoaded(value)
 
 		// Parse the duration
 		parsedJwtTokenDuration, err := time.ParseDuration(jwtTokenDuration)
