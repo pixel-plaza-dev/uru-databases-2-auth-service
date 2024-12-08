@@ -32,10 +32,10 @@ type Server struct {
 	userClient          pbuser.UserClient
 	jwtIssuer           commonjwtissuer.Issuer
 	jwtTokensDuration   map[string]time.Duration
-	logger              Logger
+	logger              *Logger
 	redisTokenValidator commonredisauth.TokenValidator
 	validator           *authservervalidator.Validator
-	jwtValidatorLogger  commonjwtvalidator.Logger
+	jwtValidatorLogger  *commonjwtvalidator.Logger
 	pbauth.UnimplementedAuthServer
 }
 
@@ -45,10 +45,10 @@ func NewServer(
 	userClient pbuser.UserClient,
 	jwtIssuer commonjwtissuer.Issuer,
 	jwtTokensDuration map[string]time.Duration,
-	logger Logger,
+	logger *Logger,
 	redisTokenValidator commonredisauth.TokenValidator,
 	validator *authservervalidator.Validator,
-	jwtValidatorLogger commonjwtvalidator.Logger,
+	jwtValidatorLogger *commonjwtvalidator.Logger,
 ) *Server {
 	return &Server{
 		authDatabase:        authDatabase,

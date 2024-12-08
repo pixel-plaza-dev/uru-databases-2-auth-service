@@ -1,7 +1,7 @@
 package validator
 
 import (
-	mongodbauth "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/database/mongodb/auth"
+	appmongodbauth "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/database/mongodb/auth"
 	commongrpcvalidator "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/http/grpc/server/validator"
 	pbauth "github.com/pixel-plaza-dev/uru-databases-2-protobuf-common/compiled/pixel_plaza/auth"
 	"google.golang.org/grpc/codes"
@@ -10,23 +10,31 @@ import (
 type (
 	// Validator is the default validator for the auth service gRPC methods
 	Validator struct {
-		authDatabase *mongodbauth.Database
+		authDatabase *appmongodbauth.Database
 		validator    commongrpcvalidator.Validator
 	}
 )
 
 // NewValidator creates a new validator
 func NewValidator(
-	authDatabase *mongodbauth.Database,
+	authDatabase *appmongodbauth.Database,
 	validator commongrpcvalidator.Validator,
-) *Validator {
-	return &Validator{authDatabase: authDatabase, validator: validator}
+) (*Validator, error) {
+	// Check if either the auth database or the validator is nil
+	if authDatabase == nil {
+		return nil, appmongodbauth.NilDatabaseError
+	}
+	if validator == nil {
+		return nil, commongrpcvalidator.NilValidatorError
+	}
+
+	return &Validator{authDatabase: authDatabase, validator: validator}, nil
 }
 
 // ValidateLogInRequest validates a log in request
 func (v Validator) ValidateLogInRequest(request *pbauth.LogInRequest) error {
 	// Get validations from fields to validate
-	validations := v.validator.ValidateNonEmptyStringFields(
+	validations, _ := v.validator.ValidateNonEmptyStringFields(
 		request,
 		&map[string]string{
 			"Password": "password",
@@ -40,7 +48,7 @@ func (v Validator) ValidateLogInRequest(request *pbauth.LogInRequest) error {
 // ValidateIsAccessTokenValidRequest validates an is access token valid request
 func (v Validator) ValidateIsAccessTokenValidRequest(request *pbauth.IsAccessTokenValidRequest) error {
 	// Get validations from fields to validate
-	validations := v.validator.ValidateNonEmptyStringFields(
+	validations, _ := v.validator.ValidateNonEmptyStringFields(
 		request,
 		&map[string]string{
 			"JwtId": "jwt_id",
@@ -53,7 +61,7 @@ func (v Validator) ValidateIsAccessTokenValidRequest(request *pbauth.IsAccessTok
 // ValidateIsRefreshTokenValidRequest validates an is refresh token valid request
 func (v Validator) ValidateIsRefreshTokenValidRequest(request *pbauth.IsRefreshTokenValidRequest) error {
 	// Get validations from fields to validate
-	validations := v.validator.ValidateNonEmptyStringFields(
+	validations, _ := v.validator.ValidateNonEmptyStringFields(
 		request,
 		&map[string]string{
 			"JwtId": "jwt_id",
@@ -66,7 +74,7 @@ func (v Validator) ValidateIsRefreshTokenValidRequest(request *pbauth.IsRefreshT
 // ValidateRevokeRefreshTokenRequest validates a revoke refresh token request
 func (v Validator) ValidateRevokeRefreshTokenRequest(request *pbauth.RevokeRefreshTokenRequest) error {
 	// Get validations from fields to validate
-	validations := v.validator.ValidateNonEmptyStringFields(
+	validations, _ := v.validator.ValidateNonEmptyStringFields(
 		request,
 		&map[string]string{
 			"JwtId": "jwt_id",
@@ -79,7 +87,7 @@ func (v Validator) ValidateRevokeRefreshTokenRequest(request *pbauth.RevokeRefre
 // ValidateGetRefreshTokenInformationRequest validates a get refresh token information request
 func (v Validator) ValidateGetRefreshTokenInformationRequest(request *pbauth.GetRefreshTokenInformationRequest) error {
 	// Get validations from fields to validate
-	validations := v.validator.ValidateNonEmptyStringFields(
+	validations, _ := v.validator.ValidateNonEmptyStringFields(
 		request,
 		&map[string]string{
 			"JwtId": "jwt_id",

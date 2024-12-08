@@ -7,8 +7,8 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
-	github.com/pixel-plaza-dev/uru-databases-2-go-service-common v0.6.48
-	github.com/pixel-plaza-dev/uru-databases-2-protobuf-common v0.4.3
+	github.com/pixel-plaza-dev/uru-databases-2-go-service-common v0.7.3
+	github.com/pixel-plaza-dev/uru-databases-2-protobuf-common v0.4.4
 	go.mongodb.org/mongo-driver v1.17.1
 	golang.org/x/net v0.30.0
 	google.golang.org/grpc v1.67.1

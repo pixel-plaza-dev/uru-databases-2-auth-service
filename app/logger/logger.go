@@ -12,20 +12,20 @@ import (
 
 var (
 	// Flag is the logger for the flag
-	Flag = commonflag.NewLogger(commonlogger.NewDefaultLogger("Flag"))
+	Flag, _ = commonflag.NewLogger(commonlogger.NewDefaultLogger("Flag"))
 
 	// Listener is the logger for the listener
-	Listener = commonlistener.NewLogger(commonlogger.NewDefaultLogger("Net Listener"))
+	Listener, _ = commonlistener.NewLogger(commonlogger.NewDefaultLogger("Net Listener"))
 
 	// Environment is the logger for the environment
-	Environment = commonenv.NewLogger(commonlogger.NewDefaultLogger("Environment"))
+	Environment, _ = commonenv.NewLogger(commonlogger.NewDefaultLogger("Environment"))
 
 	// MongoDb is the logger for the MongoDB client
-	MongoDb = commondatabase.NewLogger(commonlogger.NewDefaultLogger("MongoDB"))
+	MongoDb, _ = commondatabase.NewLogger(commonlogger.NewDefaultLogger("MongoDB"))
 
 	// AuthServer is the logger for the auth server
-	AuthServer = authserver.NewLogger(commonlogger.NewDefaultLogger("Auth Server"))
+	AuthServer, _ = authserver.NewLogger(commonlogger.NewDefaultLogger("Auth Server"))
 
 	// JwtValidator is the logger for the JWT validator
-	JwtValidator = commonjwtvalidator.NewLogger(commonlogger.NewDefaultLogger("JWT Validator"))
+	JwtValidator, _ = commonjwtvalidator.NewLogger(commonlogger.NewDefaultLogger("JWT Validator"))
 )

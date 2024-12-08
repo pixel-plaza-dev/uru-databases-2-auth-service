@@ -2,27 +2,32 @@ package grpc
 
 import (
 	"context"
-	"github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/database/mongodb/auth"
+	appmongodbauth "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/database/mongodb/auth"
 	commonredisauth "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/database/redis/auth"
 )
 
 type (
 	// DefaultTokenValidator struct
 	DefaultTokenValidator struct {
-		authDatabase        *auth.Database
+		authDatabase        *appmongodbauth.Database
 		redisTokenValidator commonredisauth.TokenValidator
 	}
 )
 
 // NewDefaultTokenValidator creates a new default token validator
 func NewDefaultTokenValidator(
-	authDatabase *auth.Database,
+	authDatabase *appmongodbauth.Database,
 	redisTokenValidator commonredisauth.TokenValidator,
-) *DefaultTokenValidator {
+) (*DefaultTokenValidator, error) {
+	// Check if the auth database is nil
+	if authDatabase == nil {
+		return nil, appmongodbauth.NilDatabaseError
+	}
+
 	return &DefaultTokenValidator{
 		authDatabase:        authDatabase,
 		redisTokenValidator: redisTokenValidator,
-	}
+	}, nil
 }
 
 // IsTokenValid checks if the token is valid
