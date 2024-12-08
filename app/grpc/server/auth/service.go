@@ -63,7 +63,7 @@ func NewServer(
 }
 
 // LogIn logs in a user
-func (s Server) LogIn(
+func (s *Server) LogIn(
 	ctx context.Context,
 	request *pbauth.LogInRequest,
 ) (response *pbauth.LogInResponse, err error) {
@@ -231,7 +231,7 @@ func (s Server) LogIn(
 }
 
 // IsAccessTokenValid checks if an access token is valid
-func (s Server) IsAccessTokenValid(
+func (s *Server) IsAccessTokenValid(
 	ctx context.Context,
 	request *pbauth.IsAccessTokenValidRequest,
 ) (response *pbauth.IsAccessTokenValidResponse, err error) {
@@ -280,7 +280,7 @@ func (s Server) IsAccessTokenValid(
 }
 
 // IsRefreshTokenValid checks if a refresh token is valid
-func (s Server) IsRefreshTokenValid(
+func (s *Server) IsRefreshTokenValid(
 	ctx context.Context,
 	request *pbauth.IsRefreshTokenValidRequest,
 ) (response *pbauth.IsRefreshTokenValidResponse, err error) {
@@ -329,7 +329,7 @@ func (s Server) IsRefreshTokenValid(
 }
 
 // GetRefreshTokensInformation gets all user's refresh tokens information
-func (s Server) GetRefreshTokensInformation(
+func (s *Server) GetRefreshTokensInformation(
 	ctx context.Context,
 	request *pbempty.Empty,
 ) (*pbauth.GetRefreshTokensInformationResponse, error) {
@@ -374,7 +374,7 @@ func (s Server) GetRefreshTokensInformation(
 }
 
 // RevokeRefreshToken revokes a user's refresh token
-func (s Server) RevokeRefreshToken(
+func (s *Server) RevokeRefreshToken(
 	ctx context.Context,
 	request *pbauth.RevokeRefreshTokenRequest,
 ) (response *pbauth.RevokeRefreshTokenResponse, err error) {
@@ -416,7 +416,7 @@ func (s Server) RevokeRefreshToken(
 }
 
 // GetRefreshTokenInformation gets the refresh token information
-func (s Server) GetRefreshTokenInformation(
+func (s *Server) GetRefreshTokenInformation(
 	ctx context.Context,
 	request *pbauth.GetRefreshTokenInformationRequest,
 ) (*pbauth.GetRefreshTokenInformationResponse, error) {
@@ -424,7 +424,7 @@ func (s Server) GetRefreshTokenInformation(
 }
 
 // RevokeRefreshTokens revokes all the user's refresh tokens
-func (s Server) RevokeRefreshTokens(
+func (s *Server) RevokeRefreshTokens(
 	ctx context.Context,
 	request *pbempty.Empty,
 ) (*pbauth.RevokeRefreshTokensResponse, error) {
@@ -433,7 +433,7 @@ func (s Server) RevokeRefreshTokens(
 }
 
 // RefreshToken refreshes a token
-func (s Server) RefreshToken(
+func (s *Server) RefreshToken(
 	ctx context.Context,
 	request *pbempty.Empty,
 ) (*pbauth.RefreshTokenResponse, error) {
@@ -442,7 +442,7 @@ func (s Server) RefreshToken(
 }
 
 // LogOut logs out a user
-func (s Server) LogOut(
+func (s *Server) LogOut(
 	ctx context.Context,
 	request *pbempty.Empty,
 ) (*pbauth.LogOutResponse, error) {
@@ -451,7 +451,7 @@ func (s Server) LogOut(
 }
 
 // AddPermission adds a permission
-func (s Server) AddPermission(
+func (s *Server) AddPermission(
 	ctx context.Context,
 	request *pbauth.AddPermissionRequest,
 ) (*pbauth.AddPermissionResponse, error) {
@@ -459,7 +459,7 @@ func (s Server) AddPermission(
 }
 
 // RevokePermission revokes a permission
-func (s Server) RevokePermission(
+func (s *Server) RevokePermission(
 	ctx context.Context,
 	request *pbauth.RevokePermissionRequest,
 ) (*pbauth.RevokePermissionResponse, error) {
@@ -467,7 +467,7 @@ func (s Server) RevokePermission(
 }
 
 // GetPermission gets a given permission
-func (s Server) GetPermission(
+func (s *Server) GetPermission(
 	ctx context.Context,
 	request *pbauth.GetPermissionRequest,
 ) (*pbauth.GetPermissionResponse, error) {
@@ -475,7 +475,7 @@ func (s Server) GetPermission(
 }
 
 // GetPermissions gets all the permissions
-func (s Server) GetPermissions(
+func (s *Server) GetPermissions(
 	ctx context.Context,
 	request *pbempty.Empty,
 ) (*pbauth.GetPermissionsResponse, error) {
@@ -483,7 +483,7 @@ func (s Server) GetPermissions(
 }
 
 // AddRolePermission adds a permission to a role
-func (s Server) AddRolePermission(
+func (s *Server) AddRolePermission(
 	ctx context.Context,
 	request *pbauth.AddRolePermissionRequest,
 ) (*pbauth.AddRolePermissionResponse, error) {
@@ -491,7 +491,7 @@ func (s Server) AddRolePermission(
 }
 
 // RevokeRolePermission revokes a permission from a role
-func (s Server) RevokeRolePermission(
+func (s *Server) RevokeRolePermission(
 	ctx context.Context,
 	request *pbauth.RevokeRolePermissionRequest,
 ) (*pbauth.RevokeRolePermissionResponse, error) {
@@ -499,7 +499,7 @@ func (s Server) RevokeRolePermission(
 }
 
 // GetRolePermissions gets all the permissions of a role
-func (s Server) GetRolePermissions(
+func (s *Server) GetRolePermissions(
 	ctx context.Context,
 	request *pbauth.GetRolePermissionsRequest,
 ) (*pbauth.GetRolePermissionsResponse, error) {
@@ -507,7 +507,7 @@ func (s Server) GetRolePermissions(
 }
 
 // AddRole adds a role
-func (s Server) AddRole(
+func (s *Server) AddRole(
 	ctx context.Context,
 	request *pbauth.AddRoleRequest,
 ) (*pbauth.AddRoleResponse, error) {
@@ -515,7 +515,7 @@ func (s Server) AddRole(
 }
 
 // RevokeRole revokes a role
-func (s Server) RevokeRole(
+func (s *Server) RevokeRole(
 	ctx context.Context,
 	request *pbauth.RevokeRoleRequest,
 ) (*pbauth.RevokeRoleResponse, error) {
@@ -523,7 +523,7 @@ func (s Server) RevokeRole(
 }
 
 // GetRoles gets all the roles
-func (s Server) GetRoles(
+func (s *Server) GetRoles(
 	ctx context.Context,
 	request *pbempty.Empty,
 ) (*pbauth.GetRolesResponse, error) {
@@ -531,7 +531,7 @@ func (s Server) GetRoles(
 }
 
 // AddUserRole adds a role to a user
-func (s Server) AddUserRole(
+func (s *Server) AddUserRole(
 	ctx context.Context,
 	request *pbauth.AddUserRoleRequest,
 ) (*pbauth.AddUserRoleResponse, error) {
@@ -539,7 +539,7 @@ func (s Server) AddUserRole(
 }
 
 // RevokeUserRole revokes a role from a user
-func (s Server) RevokeUserRole(
+func (s *Server) RevokeUserRole(
 	ctx context.Context,
 	request *pbauth.RevokeUserRoleRequest,
 ) (*pbauth.RevokeUserRoleResponse, error) {
@@ -547,7 +547,7 @@ func (s Server) RevokeUserRole(
 }
 
 // GetUserRoles gets all the roles of a user
-func (s Server) GetUserRoles(
+func (s *Server) GetUserRoles(
 	ctx context.Context,
 	request *pbauth.GetUserRolesRequest,
 ) (*pbauth.GetUserRolesResponse, error) {

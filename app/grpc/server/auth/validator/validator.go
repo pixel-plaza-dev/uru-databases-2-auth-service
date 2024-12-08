@@ -32,7 +32,7 @@ func NewValidator(
 }
 
 // ValidateLogInRequest validates a log in request
-func (v Validator) ValidateLogInRequest(request *pbauth.LogInRequest) error {
+func (v *Validator) ValidateLogInRequest(request *pbauth.LogInRequest) error {
 	// Get validations from fields to validate
 	validations, _ := v.validator.ValidateNonEmptyStringFields(
 		request,
@@ -46,7 +46,7 @@ func (v Validator) ValidateLogInRequest(request *pbauth.LogInRequest) error {
 }
 
 // ValidateIsAccessTokenValidRequest validates an is access token valid request
-func (v Validator) ValidateIsAccessTokenValidRequest(request *pbauth.IsAccessTokenValidRequest) error {
+func (v *Validator) ValidateIsAccessTokenValidRequest(request *pbauth.IsAccessTokenValidRequest) error {
 	// Get validations from fields to validate
 	validations, _ := v.validator.ValidateNonEmptyStringFields(
 		request,
@@ -59,7 +59,7 @@ func (v Validator) ValidateIsAccessTokenValidRequest(request *pbauth.IsAccessTok
 }
 
 // ValidateIsRefreshTokenValidRequest validates an is refresh token valid request
-func (v Validator) ValidateIsRefreshTokenValidRequest(request *pbauth.IsRefreshTokenValidRequest) error {
+func (v *Validator) ValidateIsRefreshTokenValidRequest(request *pbauth.IsRefreshTokenValidRequest) error {
 	// Get validations from fields to validate
 	validations, _ := v.validator.ValidateNonEmptyStringFields(
 		request,
@@ -72,7 +72,7 @@ func (v Validator) ValidateIsRefreshTokenValidRequest(request *pbauth.IsRefreshT
 }
 
 // ValidateRevokeRefreshTokenRequest validates a revoke refresh token request
-func (v Validator) ValidateRevokeRefreshTokenRequest(request *pbauth.RevokeRefreshTokenRequest) error {
+func (v *Validator) ValidateRevokeRefreshTokenRequest(request *pbauth.RevokeRefreshTokenRequest) error {
 	// Get validations from fields to validate
 	validations, _ := v.validator.ValidateNonEmptyStringFields(
 		request,
@@ -85,7 +85,7 @@ func (v Validator) ValidateRevokeRefreshTokenRequest(request *pbauth.RevokeRefre
 }
 
 // ValidateGetRefreshTokenInformationRequest validates a get refresh token information request
-func (v Validator) ValidateGetRefreshTokenInformationRequest(request *pbauth.GetRefreshTokenInformationRequest) error {
+func (v *Validator) ValidateGetRefreshTokenInformationRequest(request *pbauth.GetRefreshTokenInformationRequest) error {
 	// Get validations from fields to validate
 	validations, _ := v.validator.ValidateNonEmptyStringFields(
 		request,
