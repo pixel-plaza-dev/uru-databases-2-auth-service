@@ -4,7 +4,6 @@ import (
 	"errors"
 	"github.com/go-redis/redis/v8"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
 	appmongodbauth "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/database/mongodb/auth"
 	authservervalidator "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/grpc/server/auth/validator"
 	appjwt "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/jwt"
@@ -99,13 +98,6 @@ func (s *Server) LogIn(
 		return nil, InternalServerError
 	}
 
-	// Get the parsed shared user ID from the shared user ID string
-	userSharedId, uuidErr := uuid.Parse(user.GetUserSharedId())
-	if uuidErr != nil {
-		s.logger.FailedToLogIn(uuidErr)
-		return nil, InternalServerError
-	}
-
 	// Get the client IP address
 	ipAddress, ipErr := commongrpcserverctx.GetClientIP(ctx)
 	if ipErr != nil {
@@ -159,7 +151,6 @@ func (s *Server) LogIn(
 		UserLogInAttemptID: newUserLogInAttempt.ID,
 		IPv4Address:        ipAddress,
 		IssuedAt:           issuedAt,
-		ExpiresAt:          expiresAt[appjwt.RefreshToken],
 	}
 
 	// Create the MongoDB JWT access token object
@@ -168,7 +159,6 @@ func (s *Server) LogIn(
 		UserID:            userObjectId,
 		JwtRefreshTokenID: refreshId,
 		IssuedAt:          issuedAt,
-		ExpiresAt:         expiresAt[appjwt.AccessToken],
 	}
 
 	// Create the JWT claims
@@ -177,7 +167,6 @@ func (s *Server) LogIn(
 		newTokensClaims[token] = commonjwtissuer.GenerateClaims(
 			jwtIds[token].Hex(),
 			user.GetUserId(),
-			userSharedId,
 			issuedAt,
 			expiresAt[token],
 			token == appjwt.RefreshToken,

@@ -8,15 +8,23 @@
 # Executable files
 /**/*.exe
 
-# Certificates
-/certificates
-
 # Private and public keys
 /keys
 /**/*.ed
 /**/*.pub
 /**/*.pem
 
+# Certificates
+/certificates
+
+# Commands
+/**/*.cmd
+/**/*.sh
+/**/*.bat
+
 # Service account keys
 /iam
 /**/service-account.json
+
+# Swagger files
+# /docs

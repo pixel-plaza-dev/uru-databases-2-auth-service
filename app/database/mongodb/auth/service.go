@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	commonmongodb "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/database/mongodb"
 	commonmongodbauth "github.com/pixel-plaza-dev/uru-databases-2-go-service-common/database/mongodb/model/auth"
 	pbuser "github.com/pixel-plaza-dev/uru-databases-2-protobuf-common/compiled/pixel_plaza/user"
@@ -206,16 +207,13 @@ func (d *Database) IsRefreshTokenValid(ctx context.Context, jwtId string) (
 	}
 
 	// Find the refresh token
-	refreshToken, err := d.FindRefreshToken(
+	_, err = d.FindRefreshToken(
 		ctx,
 		bson.M{"_id": jwtObjectId, "revoked_at": bson.M{"$exists": false}},
-		bson.M{"expires_at": 1},
+		nil,
 		nil,
 	)
-	if err != nil {
-		return false, err
-	}
-	return refreshToken.ExpiresAt.After(time.Now()), nil
+	return err != nil, err
 }
 
 // FindUserRefreshTokens gets all the user's refresh tokens
@@ -319,16 +317,13 @@ func (d *Database) IsAccessTokenValid(ctx context.Context, jwtId string) (
 	}
 
 	// Find the access token
-	accessToken, err := d.FindAccessToken(
+	_, err = d.FindAccessToken(
 		ctx,
 		bson.M{"_id": jwtObjectId, "revoked_at": bson.M{"$exists": false}},
-		bson.M{"expires_at": 1},
+		nil,
 		nil,
 	)
-	if err != nil {
-		return false, err
-	}
-	return accessToken.ExpiresAt.After(time.Now()), nil
+	return !errors.Is(err, mongo.ErrNoDocuments), err
 }
 
 // UpdateJwtRefreshToken updates a JWT refresh token in the database

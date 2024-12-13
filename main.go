@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"github.com/joho/godotenv"
+	"github.com/pixel-plaza-dev/uru-databases-2-auth-service/app"
 	appmongodb "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/database/mongodb"
 	appmongodbauth "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/database/mongodb/auth"
 	appgrpc "github.com/pixel-plaza-dev/uru-databases-2-auth-service/app/grpc"
@@ -171,7 +172,7 @@ func main() {
 	if commonflag.Mode.IsDev() {
 		// Load server TLS credentials
 		transportCredentials, err = credentials.NewServerTLSFromFile(
-			appgrpc.ServerCertPath, appgrpc.ServerKeyPath,
+			app.ServerCertPath, app.ServerKeyPath,
 		)
 		if err != nil {
 			panic(err)
@@ -273,7 +274,7 @@ func main() {
 	)
 
 	// Create the gRPC server validator
-	serverValidator := commongrpcvalidator.NewDefaultValidator()
+	serverValidator := commongrpcvalidator.NewDefaultValidator(commonflag.Mode)
 
 	// Create the gRPC auth server validator
 	authServerValidator, err := authservervalidator.NewValidator(
